@@ -9,18 +9,15 @@ class HHparserApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Парсер вакансий HH.ru")
-        self.root.geometry("700x700")
+        self.root.geometry("850x800")
         self.parser = HHParser()
         self.current_data = None
         
-        # Создаем Notebook (вкладки)
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True)
         
-        # Создаем вкладки
         self.create_main_tab()
         self.create_analytics_tab()
-        
         self.create_info_panel()
         self.create_save_section()
     
@@ -105,7 +102,6 @@ class HHparserApp:
         skills_frame = ttk.LabelFrame(self.analytics_tab, text="Анализ навыков")
         skills_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Подпись для текущей выборки
         ttk.Label(
             skills_frame, 
             text="Сохранить статистику по текущей выборке"
@@ -119,7 +115,6 @@ class HHparserApp:
         )
         self.save_btn.pack(pady=5)
         
-        # Подпись для существующей выборки
         ttk.Label(
             skills_frame, 
             text="Создать статистику из существующей выборки"
@@ -136,18 +131,49 @@ class HHparserApp:
         self.skills_status.pack(pady=10)
     
     def create_info_panel(self):
+        """Создает панель информации с вертикальным расположением статистики"""
         self.info_frame = ttk.LabelFrame(self.root, text="Информация о результатах")
         self.info_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Основной контейнер для колонок
+        columns_container = ttk.Frame(self.info_frame)
+        columns_container.pack(fill=tk.X, pady=5)
+        
+        # Колонка 1: Основная информация
+        col1 = ttk.Frame(columns_container)
+        col1.pack(side=tk.LEFT, fill=tk.Y, padx=10, expand=True)
         
         self.total_var = tk.StringVar(value="Всего вакансий: -")
         self.with_salary_var = tk.StringVar(value="С зарплатой: -")
         self.last_date_var = tk.StringVar(value="Последняя дата: -")
-        self.pages_var = tk.StringVar(value="Страниц обработано: -")
+        self.pages_var = tk.StringVar(value="Страниц: -/-")
         
-        ttk.Label(self.info_frame, textvariable=self.total_var).pack(anchor=tk.W)
-        ttk.Label(self.info_frame, textvariable=self.with_salary_var).pack(anchor=tk.W)
-        ttk.Label(self.info_frame, textvariable=self.last_date_var).pack(anchor=tk.W)
-        ttk.Label(self.info_frame, textvariable=self.pages_var).pack(anchor=tk.W)
+        ttk.Label(col1, textvariable=self.total_var, anchor="w").pack(fill=tk.X)
+        ttk.Label(col1, textvariable=self.with_salary_var, anchor="w").pack(fill=tk.X)
+        ttk.Label(col1, textvariable=self.last_date_var, anchor="w").pack(fill=tk.X)
+        ttk.Label(col1, textvariable=self.pages_var, anchor="w").pack(fill=tk.X)
+        
+        # Колонка 2: Опыт работы
+        col2 = ttk.Frame(columns_container)
+        col2.pack(side=tk.LEFT, fill=tk.Y, padx=10, expand=True)
+        
+        ttk.Label(col2, text="Опыт работы:", font=('TkDefaultFont', 9, 'bold')).pack(anchor="w")
+        self.experience_vars = {}
+        
+        # Колонка 3: График работы
+        col3 = ttk.Frame(columns_container)
+        col3.pack(side=tk.LEFT, fill=tk.Y, padx=10, expand=True)
+        
+        ttk.Label(col3, text="График работы:", font=('TkDefaultFont', 9, 'bold')).pack(anchor="w")
+        self.schedule_vars_stats = {}
+        
+        # Колонка 4: Контакты
+        col4 = ttk.Frame(columns_container)
+        col4.pack(side=tk.LEFT, fill=tk.Y, padx=10, expand=True)
+        
+        ttk.Label(col4, text="Контакты:", font=('TkDefaultFont', 9, 'bold')).pack(anchor="w")
+        self.contacts_var = tk.StringVar(value="Указаны: - (-%)")
+        ttk.Label(col4, textvariable=self.contacts_var, anchor="w").pack(fill=tk.X)
     
     def create_save_section(self):
         save_frame = ttk.LabelFrame(self.root, text="Сохранение результатов")
@@ -174,18 +200,15 @@ class HHparserApp:
             if not filepath:
                 return
             
-            # Читаем файл
             if filepath.endswith('.csv'):
                 df = pd.read_csv(filepath)
             else:
                 df = pd.read_excel(filepath)
             
-            # Проверяем наличие нужных колонок
             if "Ссылка" not in df.columns:
                 messagebox.showerror("Ошибка", "В файле отсутствует колонка 'Ссылка'")
                 return
             
-            # Извлекаем ID вакансий из ссылок
             vacancy_ids = []
             for link in df["Ссылка"]:
                 match = re.search(r'vacancy/(\d+)', str(link))
@@ -196,7 +219,6 @@ class HHparserApp:
                 messagebox.showerror("Ошибка", "Не удалось извлечь ID вакансий из ссылок")
                 return
             
-            # Получаем данные по вакансиям
             self.status_var.set("Получение данных по вакансиям из файла...")
             self.root.update()
             
@@ -206,7 +228,6 @@ class HHparserApp:
                 messagebox.showwarning("Предупреждение", "Не удалось получить данные по вакансиям")
                 return
             
-            # Собираем статистику по навыкам
             all_skills = []
             for skills_str in vacancies_df["Ключевые навыки"]:
                 if skills_str != "Не указаны":
@@ -217,7 +238,6 @@ class HHparserApp:
                 messagebox.showinfo("Информация", "В выбранных вакансиях не указаны ключевые навыки")
                 return
             
-            # Создаем и сохраняем статистику
             skills_counter = Counter(all_skills)
             skills_df = pd.DataFrame({
                 "Навык": list(skills_counter.keys()),
@@ -295,7 +315,6 @@ class HHparserApp:
             return
             
         try:
-            # Собираем все ключевые навыки из всех вакансий
             all_skills = []
             for skills_str in self.current_data["Ключевые навыки"]:
                 if skills_str != "Не указаны":
@@ -306,19 +325,15 @@ class HHparserApp:
                 messagebox.showinfo("Информация", "В выбранных вакансиях не указаны ключевые навыки")
                 return
             
-            # Считаем частоту встречаемости навыков
             skills_counter = Counter(all_skills)
             
-            # Создаем DataFrame с навыками и их частотой
             skills_df = pd.DataFrame({
                 "Навык": list(skills_counter.keys()),
                 "Частота": list(skills_counter.values())
             })
             
-            # Сортируем по частоте (по убыванию)
             skills_df = skills_df.sort_values("Частота", ascending=False)
             
-            # Сохраняем в файл
             filepath = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel files", "*.xlsx")],
@@ -338,7 +353,7 @@ class HHparserApp:
         progress = int((current / total) * 100) if total > 0 else 0
         self.progress["value"] = progress
         self.detailed_status_var.set(f"Обработка страницы {current} из {total}")
-        self.pages_var.set(f"Страниц обработано: {current}/{total}")
+        self.pages_var.set(f"Страниц: {current}/{total}")
         self.root.update_idletasks()
     
     def save_results(self):
@@ -375,18 +390,58 @@ class HHparserApp:
     
     def update_info_panel(self, df):
         total = len(df)
+        if total == 0:
+            self.reset_ui()
+            return
+        
+        # Основная статистика
         with_salary = len(df[df['Зарплата'] != "Не указана"])
-        last_date = df['Дата'].max() if not df.empty else "-"
+        last_date = df['Дата публикации'].max()
         
         self.total_var.set(f"Всего вакансий: {total}")
-        self.with_salary_var.set(f"С зарплатой: {with_salary} ({with_salary/total*100:.1f}%)" if total else "С зарплатой: -")
+        self.with_salary_var.set(f"С зарплатой: {with_salary} ({with_salary/total*100:.1f}%)")
         self.last_date_var.set(f"Последняя дата: {last_date}")
+        
+        # Очищаем предыдущую статистику
+        for col in [self.info_frame.winfo_children()[0].winfo_children()[1],  # Колонка опыта
+                    self.info_frame.winfo_children()[0].winfo_children()[2]]: # Колонка графика
+            for widget in col.winfo_children()[1:]:
+                widget.destroy()
+        
+        # Статистика по опыту работы
+        experience_stats = df['Опыт работы'].value_counts(normalize=True).mul(100).round(1)
+        for exp, percent in experience_stats.items():
+            count = len(df[df['Опыт работы'] == exp])
+            label_text = f"{exp}: {count} ({percent}%)"
+            ttk.Label(self.info_frame.winfo_children()[0].winfo_children()[1], 
+                     text=label_text, anchor="w").pack(fill=tk.X)
+        
+        # Статистика по графику работы
+        schedule_stats = df['График работы'].value_counts(normalize=True).mul(100).round(1)
+        for schedule, percent in schedule_stats.items():
+            count = len(df[df['График работы'] == schedule])
+            label_text = f"{schedule}: {count} ({percent}%)"
+            ttk.Label(self.info_frame.winfo_children()[0].winfo_children()[2], 
+                     text=label_text, anchor="w").pack(fill=tk.X)
+        
+        # Статистика по контактам
+        with_contacts = len(df[df['Контакты'] != "Не указаны"])
+        percent = with_contacts / total * 100
+        self.contacts_var.set(f"Указаны: {with_contacts} ({percent:.1f}%)")
     
     def reset_ui(self):
         self.total_var.set("Всего вакансий: -")
         self.with_salary_var.set("С зарплатой: -")
         self.last_date_var.set("Последняя дата: -")
-        self.pages_var.set("Страниц обработано: -")
+        self.pages_var.set("Страниц: -/-")
+        
+        # Очищаем статистику
+        for col in [self.info_frame.winfo_children()[0].winfo_children()[1],  # Колонка опыта
+                    self.info_frame.winfo_children()[0].winfo_children()[2]]: # Колонка графика
+            for widget in col.winfo_children()[1:]:
+                widget.destroy()
+        
+        self.contacts_var.set("Указаны: - (-%)")
         self.save_status.config(text="Данные не загружены")
         self.skills_status.config(text="")
         self.save_results_btn.config(state=tk.DISABLED)

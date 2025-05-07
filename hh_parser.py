@@ -60,7 +60,7 @@ class HHParser:
                 
                 filtered_items = []
                 for item in data.get("items", []):
-                    # Получаем полную информацию о вакансии для доступа к ключевым навыкам
+                    # Получаем полную информацию о вакансии
                     vacancy_id = item.get("id")
                     vacancy_details = self._get_vacancy_details(vacancy_id)
                     
@@ -80,8 +80,8 @@ class HHParser:
                                 break
                     
                     if keyword_match and not stop_word_found:
-                        # Добавляем навыки из деталей вакансии
-                        item["key_skills"] = vacancy_details.get("key_skills", [])
+                        # Добавляем полные данные о вакансии
+                        item.update(vacancy_details)
                         filtered_items.append(item)
                 
                 vacancies.extend(filtered_items)
@@ -111,7 +111,7 @@ class HHParser:
         return self._format_results(vacancies)
     
     def _get_vacancy_details(self, vacancy_id: str) -> dict:
-        """Получает полную информацию о вакансии, включая ключевые навыки"""
+        """Получает полную информацию о вакансии"""
         try:
             response = requests.get(f"{self.base_url}/{vacancy_id}")
             response.raise_for_status()
@@ -134,20 +134,37 @@ class HHParser:
             salary = vacancy.get("salary")
             salary_str = self._format_salary(salary)
             
+            # Опыт работы
+            experience = vacancy.get("experience", {})
+            experience_name = experience.get("name") if experience else "Не указан"
+            
+            # График работы
             schedule = vacancy.get("schedule", {})
             schedule_name = schedule.get("name") if schedule else "Не указан"
             
-            # Получаем ключевые навыки
+            # Контакты
+            contacts = vacancy.get("contacts")
+            contact_info = self._format_contacts(contacts)
+            
+            # Навыки
             skills = [skill.get("name") for skill in vacancy.get("key_skills", [])]
+            
+            # Адрес
+            address = vacancy.get("address")
+            address_str = self._format_address(address)
             
             results.append({
                 "Компания": vacancy.get("employer", {}).get("name", "Не указано"),
                 "Вакансия": vacancy.get("name", "Без названия"),
                 "Зарплата": salary_str,
-                "Формат работы": schedule_name,
+                "Опыт работы": experience_name,
+                "График работы": schedule_name,
+                "Тип занятости": vacancy.get("employment", {}).get("name", "Не указан"),
                 "Ключевые навыки": ", ".join(skills) if skills else "Не указаны",
+                "Контакты": contact_info,
+                "Адрес": address_str,
                 "Ссылка": f"https://hh.ru/vacancy/{vacancy.get('id', '')}",
-                "Дата": vacancy.get("published_at", "")[:10],
+                "Дата публикации": vacancy.get("published_at", "")[:10],
                 "Описание": self._get_description_snippet(vacancy.get("snippet", {}))
             })
         
@@ -160,6 +177,33 @@ class HHParser:
         to_sal = salary.get('to', '')
         currency = salary.get('currency', '')
         return f"{from_sal}-{to_sal} {currency}" if from_sal or to_sal else "Не указана"
+    
+    def _format_contacts(self, contacts: dict) -> str:
+        if not contacts:
+            return "Не указаны"
+        
+        contact_parts = []
+        if contacts.get("name"):
+            contact_parts.append(f"Контактное лицо: {contacts['name']}")
+        if contacts.get("email"):
+            contact_parts.append(f"Email: {contacts['email']}")
+        if contacts.get("phones"):
+            phones = ", ".join([phone.get("number", "") for phone in contacts["phones"]])
+            if phones:
+                contact_parts.append(f"Телефоны: {phones}")
+        
+        return "\n".join(contact_parts) if contact_parts else "Не указаны"
+    
+    def _format_address(self, address: dict) -> str:
+        if not address:
+            return "Не указан"
+        
+        city = address.get("city", "")
+        street = address.get("street", "")
+        building = address.get("building", "")
+        
+        parts = [part for part in [city, street, building] if part]
+        return ", ".join(parts) if parts else "Не указан"
     
     def _get_description_snippet(self, snippet: dict) -> str:
         req = snippet.get("requirement", "") or ""
